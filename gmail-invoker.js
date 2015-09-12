@@ -99,24 +99,44 @@ function storeToken(token) {
  * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
  */
 function listLabels(auth) {
-  var gmail = google.gmail('v1');
-  gmail.users.labels.list({
+  var gmail = google.gmail('v1')
+
+  gmail.users.messages.list({
     auth: auth,
     userId: 'me',
+    id: 'INBOX'
   }, function(err, response) {
     if (err) {
-      console.log('The API returned an error: ' + err);
-      return;
+      console.log('The API returned an error: ' + err)
+      return
     }
-    var labels = response.labels;
-    if (labels.length == 0) {
-      console.log('No labels found.');
+    var messages = response.messages
+
+    if (messages.length == 0) {
+      console.log('No messages found.')
     } else {
-      console.log('Labels:');
-      for (var i = 0; i < labels.length; i++) {
-        var label = labels[i];
-        console.log('- %s', label.name);
+      console.log('Labels:')
+      for (var i = 0; i < 1/*messages.length*/; i++) {
+        var message = messages[i]
+
+        gmail.users.messages.get({
+          auth: auth,
+          userId: 'me',
+          id: message.id
+        }, function(err, response) {
+          if (err) {
+            console.log('The API returned an error: ' + err)
+            return;
+          }
+          var messages = response.messages
+//console.log (response.payload)
+          if (response.payload.body.data)
+            var email_contents = new Buffer (response.payload.body.data, 'base64').toString()
+
+            if (email_contents && email_contents.indexOf("codeword") >= 0)
+              console.log (email_contents)
+        })
       }
     }
-  });
+  })
 }
