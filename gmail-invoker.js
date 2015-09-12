@@ -8,6 +8,8 @@ var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
     process.env.USERPROFILE) + '/.credentials/';
 var TOKEN_PATH = TOKEN_DIR + 'gmail-api-quickstart.json';
 
+var CODEWORD = "codeword"
+
 // Load client secrets from a local file.
 fs.readFile('client_secret.json', function processClientSecrets(err, content) {
   if (err) {
@@ -101,6 +103,7 @@ function storeToken(token) {
 function listLabels(auth) {
   var gmail = google.gmail('v1')
 
+  // get all messages from the INBOX
   gmail.users.messages.list({
     auth: auth,
     userId: 'me',
@@ -115,10 +118,13 @@ function listLabels(auth) {
     if (messages.length == 0) {
       console.log('No messages found.')
     } else {
-      console.log('Labels:')
-      for (var i = 0; i < 1/*messages.length*/; i++) {
+      var alreadyRactedTo = JSON.parse(fs.readFileSync("alreadyRactedTo.json", 'utf8'));
+
+      console.log('Messages:')
+      for (var i = 0; i < messages.length; i++) {
         var message = messages[i]
 
+        // get this message contents
         gmail.users.messages.get({
           auth: auth,
           userId: 'me',
@@ -126,17 +132,39 @@ function listLabels(auth) {
         }, function(err, response) {
           if (err) {
             console.log('The API returned an error: ' + err)
-            return;
+            return
           }
-          var messages = response.messages
-//console.log (response.payload)
-          if (response.payload.body.data)
+
+          if (response.payload.body.data && haveNotReactedToThisId (message.id, alreadyRactedTo))
             var email_contents = new Buffer (response.payload.body.data, 'base64').toString()
 
-            if (email_contents && email_contents.indexOf("codeword") >= 0)
-              console.log (email_contents)
+            if (email_contents && email_contents.indexOf(CODEWORD) >= 0) {
+              console.log ("      ID: " + message.id)
+              console.log ("Contents: " + email_contents)
+
+              alreadyRactedTo.push ({"id":message.id})
+
+              fs.writeFile("alreadyRactedTo.json", JSON.stringify(alreadyRactedTo), function(err) {
+                  if(err) {
+                      return console.log(err)
+                  }
+
+                  console.log("The file was saved!")
+              })
+            }
         })
       }
     }
   })
+}
+
+
+function haveNotReactedToThisId (id, list) {
+  for (i in list) {
+    if (id == list[i].id) {
+      return false
+    }
+  }
+
+  return true
 }
