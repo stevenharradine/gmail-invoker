@@ -8,9 +8,9 @@ var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
     process.env.USERPROFILE) + '/.credentials/';
 var TOKEN_PATH = TOKEN_DIR + 'gmail-api-quickstart.json';
 
-var CODEWORD = "codeword",
-    sys = require('sys'),
-    exec = require('child_process').exec;
+var CONFIG  = require("./config"),
+    sys     = require('sys'),
+    exec    = require('child_process').exec
 
 // Load client secrets from a local file.
 fs.readFile('client_secret.json', function processClientSecrets(err, content) {
@@ -140,7 +140,7 @@ function listLabels(auth) {
           if (response.payload.body.data && haveNotReactedToThisId (message.id, alreadyRactedTo))
             var email_contents = new Buffer (response.payload.body.data, 'base64').toString()
 
-            if (email_contents && email_contents.indexOf(CODEWORD) >= 0) {
+            if (email_contents && email_contents.indexOf(CONFIG.CODEWORD) >= 0) {
               console.log ("      ID: " + message.id)
               console.log ("Contents: " + email_contents)
 
@@ -155,7 +155,7 @@ function listLabels(auth) {
               })
 
               // run script
-              exec("bash ./script.sh", function (error, stdout, stderr) {
+              exec(CONFIG.SCRIPT, function (error, stdout, stderr) {
                 if (error) {
                   console.log (error)
                 }
