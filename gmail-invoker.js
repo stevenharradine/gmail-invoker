@@ -197,6 +197,8 @@ function listLabels(auth) {
                     html: stdout.replace(/(?:\r\n|\r|\n)/g, '<br />')                // html body
                   }
 
+                  console.log (stdout)
+
                   // send mail with defined transport object
                   transporter.sendMail(mailOptions, function(error, info){
                     if (error){
