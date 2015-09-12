@@ -8,9 +8,10 @@ var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
     process.env.USERPROFILE) + '/.credentials/';
 var TOKEN_PATH = TOKEN_DIR + 'gmail-api-quickstart.json';
 
-var CONFIG  = require("./config"),
-    sys     = require('sys'),
-    exec    = require('child_process').exec
+var CONFIG     = require("./config"),
+    sys        = require('sys'),
+    exec       = require('child_process').exec,
+    nodemailer = require("nodemailer"),
 
 // Load client secrets from a local file.
 fs.readFile('client_secret.json', function processClientSecrets(err, content) {

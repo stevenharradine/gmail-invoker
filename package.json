@@ -5,6 +5,7 @@
   "private": true,
   "dependencies": {
     "googleapis": "*",
-    "google-auth-library": "*"
+    "google-auth-library": "*",
+    "nodemailer": "*"
   }
 }
