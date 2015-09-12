@@ -11,7 +11,7 @@ var TOKEN_PATH = TOKEN_DIR + 'gmail-api-quickstart.json';
 var CONFIG     = require("./config"),
     sys        = require('sys'),
     exec       = require('child_process').exec,
-    nodemailer = require("nodemailer"),
+    nodemailer = require("nodemailer")
 
 // Load client secrets from a local file.
 fs.readFile('client_secret.json', function processClientSecrets(err, content) {
@@ -138,15 +138,42 @@ function listLabels(auth) {
             return
           }
 
-          if (response.payload.body.data && haveNotReactedToThisId (message.id, alreadyRactedTo))
+          if (response.payload.body.data && haveNotReactedToThisId (getHeaders ("Date", response.payload.headers), alreadyRactedTo))
             var email_contents = new Buffer (response.payload.body.data, 'base64').toString()
 
             if (email_contents && email_contents.indexOf(CONFIG.CODEWORD) >= 0) {
               console.log ("      ID: " + message.id)
               console.log ("Contents: " + email_contents)
 
+              var transporter  = nodemailer.createTransport({
+                service: CONFIG.EMAIL_PROVIDER,
+                auth: {
+                  user: CONFIG.EMAIL_USER,
+                  pass: CONFIG.EMAIL_PASSWORD
+                }
+              })
+
+              CONFIG.EMAIL_LIST.forEach (function (emailAddress, index, array) {
+                var mailOptions = {             // setup e-mail data with unicode symbols
+                  from: "gmail-invoker ✔ <stevenharradine@gmail.com>", // sender address
+                  to: emailAddress,             // list of receivers
+                  subject: "Script Started",    // Subject line
+                  text: email_contents,               // plaintext body
+                  html: email_contents                // html body
+                }
+
+                // send mail with defined transport object
+                transporter.sendMail(mailOptions, function(error, info){
+                  if (error){
+                    console.log(error);
+                  } else {
+                    console.log("Message sent: " + info.response);
+                  }
+                })
+              })
+
               // add current id to list so we wont react to it next time
-              alreadyRactedTo.push ({"id":message.id})
+              alreadyRactedTo.push ({"id":getHeaders ("Date", response.payload.headers)})
               fs.writeFile("alreadyRactedTo.json", JSON.stringify(alreadyRactedTo), function(err) {
                   if(err) {
                       return console.log(err)
@@ -161,7 +188,24 @@ function listLabels(auth) {
                   console.log (error)
                 }
 
-                sys.puts(stdout)
+                CONFIG.EMAIL_LIST.forEach (function (emailAddress, index, array) {
+                  var mailOptions = {             // setup e-mail data with unicode symbols
+                    from: "gmail-invoker ✔ <stevenharradine@gmail.com>", // sender address
+                    to: emailAddress,             // list of receivers
+                    subject: "Script Finished",    // Subject line
+                    text: stdout.replace(/(?:\r\n|\r|\n)/g, '<br />'),               // plaintext body
+                    html: stdout.replace(/(?:\r\n|\r|\n)/g, '<br />')                // html body
+                  }
+
+                  // send mail with defined transport object
+                  transporter.sendMail(mailOptions, function(error, info){
+                    if (error){
+                      console.log(error)
+                    } else {
+                      console.log("Message sent: " + info.response)
+                    }
+                  })
+                })
               })
             }
         })
@@ -179,4 +223,14 @@ function haveNotReactedToThisId (id, list) {
   }
 
   return true
+}
+
+function getHeaders (name, headers) {
+  for (i in headers) {
+    if (name == headers[i].name) {
+      return headers[i].value
+    }
+  }
+
+  return undefined
 }
