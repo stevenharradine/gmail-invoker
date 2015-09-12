@@ -1,4 +1,160 @@
-var fs = require('fs');
+var CONFIG          = require("./config"),
+    fs              = require('fs'),
+    sys             = require('sys'),
+    exec            = require('child_process').exec,
+    nodemailer      = require("nodemailer"),
+    gmail           = google.gmail('v1'),
+    alreadyRactedTo = JSON.parse(fs.readFileSync("alreadyRactedTo.json", 'utf8'))
+
+
+// Load client secrets from a local file.
+fs.readFile('client_secret.json', function processClientSecrets(error, content) {
+  if (error) {
+    return console.log('Error loading client secret file: ' + error)
+  }
+
+  // Authorize a client with the loaded credentials, then call the
+  // Gmail API.
+  authorize(JSON.parse(content), checkInboxForMessages)
+})
+
+/**
+ * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
+ */
+function checkInboxForMessages(auth) {
+  gmail.users.messages.list({
+    auth: auth,
+    userId: 'me',
+    id: 'INBOX'
+  }, function(error, response) {
+    if (error) {
+      return console.log('The API returned an error: ' + error)
+    }
+
+    iterateThruEmails (auth, response.messages)
+  })
+}
+
+function iterateThruEmails (auth, messages) {
+  if (messages.length == 0) {
+    console.log('No messages found.')
+  } else {
+    console.log('Messages:')
+    for (var i = 0; i < messages.length; i++) {
+      var message = messages[i]
+
+      getEmailContents (auth, message.id)
+    }
+  }
+}
+
+function getEmailContents (auth, message_id) {
+  gmail.users.messages.get({
+    auth: auth,
+    userId: 'me',
+    id: message_id
+  }, function(error, response) {
+    if (error) {
+      return console.log('The API returned an error: ' + error)
+    }
+
+    processEmail (message_id, response)
+  })
+}
+
+function processEmail (message_id, response) {
+  if (response.payload.body.data && haveNotReactedToThisId (getHeaders ("Date", response.payload.headers), alreadyRactedTo)) {
+    var email_contents = new Buffer (response.payload.body.data, 'base64').toString()
+
+    if (email_contents && email_contents.indexOf(CONFIG.CODEWORD) >= 0) {
+      console.log ("      ID: " + message_id)
+      console.log ("Contents: " + email_contents)
+
+      sendEmail ("Script Started", email_contents)
+      addCurrentIdToAlreadyRactedTo (getHeaders ("Date", response.payload.headers))
+
+      runScript (function (stdout) {
+        sendEmail ("Script Finished", stdout.replace(/(?:\r\n|\r|\n)/g, '<br />'))
+      })
+    }
+  }
+}
+
+function addCurrentIdToAlreadyRactedTo (id) {
+  alreadyRactedTo.push ({"id":id})
+  fs.writeFile("alreadyRactedTo.json", JSON.stringify(alreadyRactedTo), function(error) {
+    if (error) {
+      return console.log(error)
+    }
+
+    console.log("The alreadyRactedTo.json has been updated")
+  })
+}
+
+function runScript (callback) {
+  exec(CONFIG.SCRIPT, function (error, stdout, stderr) {
+    if (error) {
+      return console.log (error)
+    } else {
+      console.log (stdout)
+
+      callback (stdout)
+    }
+  })
+}
+
+function sendEmail (subject, body) {
+  var transporter  = nodemailer.createTransport({
+    service: CONFIG.EMAIL_PROVIDER,
+    auth: {
+      user: CONFIG.EMAIL_USER,
+      pass: CONFIG.EMAIL_PASSWORD
+    }
+  })
+
+  CONFIG.EMAIL_LIST.forEach (function (emailAddress, index, array) {
+    var mailOptions = {
+      from: "gmail-invoker ✔ <stevenharradine@gmail.com>",
+      to: emailAddress,
+      subject: subject,
+      text: body,
+      html: body
+    }
+
+    // send mail with defined transport object
+    transporter.sendMail(mailOptions, function(error, info){
+      if (error){
+        return console.log(error);
+      } else {
+        console.log("Message sent: " + info.response);
+      }
+    })
+  })
+}
+
+function haveNotReactedToThisId (id, list) {
+  for (i in list) {
+    if (id == list[i].id) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function getHeaders (name, headers) {
+  for (i in headers) {
+    if (name == headers[i].name) {
+      return headers[i].value
+    }
+  }
+
+  return undefined
+}
+
+/*****************************************************************************
+ *                          Start Google OAuth                               *
+ *****************************************************************************/
 var readline = require('readline');
 var google = require('googleapis');
 var googleAuth = require('google-auth-library');
@@ -7,22 +163,6 @@ var SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
 var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
     process.env.USERPROFILE) + '/.credentials/';
 var TOKEN_PATH = TOKEN_DIR + 'gmail-api-quickstart.json';
-
-var CONFIG     = require("./config"),
-    sys        = require('sys'),
-    exec       = require('child_process').exec,
-    nodemailer = require("nodemailer")
-
-// Load client secrets from a local file.
-fs.readFile('client_secret.json', function processClientSecrets(err, content) {
-  if (err) {
-    console.log('Error loading client secret file: ' + err);
-    return;
-  }
-  // Authorize a client with the loaded credentials, then call the
-  // Gmail API.
-  authorize(JSON.parse(content), listLabels);
-});
 
 /**
  * Create an OAuth2 client with the given credentials, and then execute the
@@ -96,143 +236,4 @@ function storeToken(token) {
   }
   fs.writeFile(TOKEN_PATH, JSON.stringify(token));
   console.log('Token stored to ' + TOKEN_PATH);
-}
-
-/**
- * Lists the labels in the user's account.
- *
- * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
- */
-function listLabels(auth) {
-  var gmail = google.gmail('v1')
-
-  // get all messages from the INBOX
-  gmail.users.messages.list({
-    auth: auth,
-    userId: 'me',
-    id: 'INBOX'
-  }, function(err, response) {
-    if (err) {
-      console.log('The API returned an error: ' + err)
-      return
-    }
-    var messages = response.messages
-
-    if (messages.length == 0) {
-      console.log('No messages found.')
-    } else {
-      var alreadyRactedTo = JSON.parse(fs.readFileSync("alreadyRactedTo.json", 'utf8'));
-
-      console.log('Messages:')
-      for (var i = 0; i < messages.length; i++) {
-        var message = messages[i]
-
-        // get this message contents
-        gmail.users.messages.get({
-          auth: auth,
-          userId: 'me',
-          id: message.id
-        }, function(err, response) {
-          if (err) {
-            console.log('The API returned an error: ' + err)
-            return
-          }
-
-          if (response.payload.body.data && haveNotReactedToThisId (getHeaders ("Date", response.payload.headers), alreadyRactedTo))
-            var email_contents = new Buffer (response.payload.body.data, 'base64').toString()
-
-            if (email_contents && email_contents.indexOf(CONFIG.CODEWORD) >= 0) {
-              console.log ("      ID: " + message.id)
-              console.log ("Contents: " + email_contents)
-
-              var transporter  = nodemailer.createTransport({
-                service: CONFIG.EMAIL_PROVIDER,
-                auth: {
-                  user: CONFIG.EMAIL_USER,
-                  pass: CONFIG.EMAIL_PASSWORD
-                }
-              })
-
-              CONFIG.EMAIL_LIST.forEach (function (emailAddress, index, array) {
-                var mailOptions = {             // setup e-mail data with unicode symbols
-                  from: "gmail-invoker ✔ <stevenharradine@gmail.com>", // sender address
-                  to: emailAddress,             // list of receivers
-                  subject: "Script Started",    // Subject line
-                  text: email_contents,               // plaintext body
-                  html: email_contents                // html body
-                }
-
-                // send mail with defined transport object
-                transporter.sendMail(mailOptions, function(error, info){
-                  if (error){
-                    console.log(error);
-                  } else {
-                    console.log("Message sent: " + info.response);
-                  }
-                })
-              })
-
-              // add current id to list so we wont react to it next time
-              alreadyRactedTo.push ({"id":getHeaders ("Date", response.payload.headers)})
-              fs.writeFile("alreadyRactedTo.json", JSON.stringify(alreadyRactedTo), function(err) {
-                  if(err) {
-                      return console.log(err)
-                  }
-
-                  console.log("The alreadyRactedTo.json has been updated")
-              })
-
-              // run script
-              exec(CONFIG.SCRIPT, function (error, stdout, stderr) {
-                if (error) {
-                  console.log (error)
-                }
-
-                CONFIG.EMAIL_LIST.forEach (function (emailAddress, index, array) {
-                  var mailOptions = {             // setup e-mail data with unicode symbols
-                    from: "gmail-invoker ✔ <stevenharradine@gmail.com>", // sender address
-                    to: emailAddress,             // list of receivers
-                    subject: "Script Finished",    // Subject line
-                    text: stdout.replace(/(?:\r\n|\r|\n)/g, '<br />'),               // plaintext body
-                    html: stdout.replace(/(?:\r\n|\r|\n)/g, '<br />')                // html body
-                  }
-
-                  console.log (stdout)
-
-                  // send mail with defined transport object
-                  transporter.sendMail(mailOptions, function(error, info){
-                    if (error){
-                      console.log(error)
-                    } else {
-                      console.log("Message sent: " + info.response)
-                    }
-                  })
-                })
-              })
-            }
-        })
-      }
-    }
-  })
-}
-
-
-function haveNotReactedToThisId (id, list) {
-  for (i in list) {
-    if (id == list[i].id) {
-      return false
-    }
-  }
-
-  return true
-}
-
-function getHeaders (name, headers) {
-  for (i in headers) {
-    if (name == headers[i].name) {
-      return headers[i].value
-    }
-  }
-
-  return undefined
 }
