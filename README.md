@@ -1,4 +1,4 @@
-# gmail-invoker
+# GMail Invoker
 Will run scripts based on codewords in your gmail
 
 ## Clone the repo
