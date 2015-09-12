@@ -8,7 +8,9 @@ var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
     process.env.USERPROFILE) + '/.credentials/';
 var TOKEN_PATH = TOKEN_DIR + 'gmail-api-quickstart.json';
 
-var CODEWORD = "codeword"
+var CODEWORD = "codeword",
+    sys = require('sys'),
+    exec = require('child_process').exec;
 
 // Load client secrets from a local file.
 fs.readFile('client_secret.json', function processClientSecrets(err, content) {
@@ -142,14 +144,23 @@ function listLabels(auth) {
               console.log ("      ID: " + message.id)
               console.log ("Contents: " + email_contents)
 
+              // add current id to list so we wont react to it next time
               alreadyRactedTo.push ({"id":message.id})
-
               fs.writeFile("alreadyRactedTo.json", JSON.stringify(alreadyRactedTo), function(err) {
                   if(err) {
                       return console.log(err)
                   }
 
-                  console.log("The file was saved!")
+                  console.log("The alreadyRactedTo.json has been updated")
+              })
+
+              // run script
+              exec("bash ./script.sh", function (error, stdout, stderr) {
+                if (error) {
+                  console.log (error)
+                }
+
+                sys.puts(stdout)
               })
             }
         })
