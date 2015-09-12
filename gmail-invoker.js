@@ -3,9 +3,7 @@ var CONFIG          = require("./config"),
     sys             = require('sys'),
     exec            = require('child_process').exec,
     nodemailer      = require("nodemailer"),
-    gmail           = google.gmail('v1'),
     alreadyRactedTo = JSON.parse(fs.readFileSync("alreadyRactedTo.json", 'utf8'))
-
 
 // Load client secrets from a local file.
 fs.readFile('client_secret.json', function processClientSecrets(error, content) {
@@ -158,11 +156,12 @@ function getHeaders (name, headers) {
 var readline = require('readline');
 var google = require('googleapis');
 var googleAuth = require('google-auth-library');
+var gmail = google.gmail('v1');
 
 var SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
 var TOKEN_DIR = (process.env.HOME || process.env.HOMEPATH ||
     process.env.USERPROFILE) + '/.credentials/';
-var TOKEN_PATH = TOKEN_DIR + 'gmail-api-quickstart.json';
+var TOKEN_PATH = TOKEN_DIR + 'gmail-api-quickstart.json'
 
 /**
  * Create an OAuth2 client with the given credentials, and then execute the
