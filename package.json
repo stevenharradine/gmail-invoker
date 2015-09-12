@@ -1,0 +1,10 @@
+{
+  "name": "gmail-invoker",
+  "description": "Will run scripts based on triggers in your gmail",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "googleapis": "*",
+    "google-auth-library": "*"
+  }
+}
