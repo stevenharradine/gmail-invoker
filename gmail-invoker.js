@@ -7,14 +7,12 @@ var CONFIG          = require("./config"),
 
 getGoogleOAuthData (function (auth) {
   checkInboxForMessages (auth, function (auth, messages) {
-    iterateThruEmails (auth, messages, function (auth, message_id) {
-      getEmailContents (auth, message_id, function (message_id, response) {
-        processEmail (message_id, response, function (email_contents) {
-          sendEmail ("Script Started", email_contents, function () {
-            runScript (function (stdout) {
-              sendEmail ("Script Finished", stdout.replace(/(?:\r\n|\r|\n)/g, '<br />'), function () {
-                console.log ("done")
-              })
+    getEmailContents (auth, messages, function (message_id, response) {
+      processEmail (message_id, response, function (email_contents) {
+        sendEmail ("Script Started", email_contents, function () {
+          runScript (function (stdout) {
+            sendEmail ("Script Finished", stdout.replace(/(?:\r\n|\r|\n)/g, '<br />'), function () {
+              console.log ("done")
             })
           })
         })
@@ -54,7 +52,7 @@ function checkInboxForMessages(auth, callback) {
   })
 }
 
-function iterateThruEmails (auth, messages, callback) {
+function getEmailContents (auth, messages, callback) {
   if (messages.length == 0) {
     console.log('No messages found.')
   } else {
@@ -62,23 +60,19 @@ function iterateThruEmails (auth, messages, callback) {
     for (var i = 0; i < messages.length; i++) {
       var message = messages[i]
 
-      callback (auth, message.id)
+      gmail.users.messages.get({
+        auth: auth,
+        userId: 'me',
+        id: message.id
+      }, function(error, response) {
+        if (error) {
+          return console.log('The API returned an error: ' + error)
+        }
+
+        callback (message.id, response)
+      })
     }
   }
-}
-
-function getEmailContents (auth, message_id, callback) {
-  gmail.users.messages.get({
-    auth: auth,
-    userId: 'me',
-    id: message_id
-  }, function(error, response) {
-    if (error) {
-      return console.log('The API returned an error: ' + error)
-    }
-
-    callback (message_id, response)
-  })
 }
 
 function processEmail (message_id, response, callback) {
