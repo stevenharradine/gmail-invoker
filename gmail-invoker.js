@@ -6,7 +6,9 @@ var CONFIG          = require("./config"),
     alreadyRactedTo = JSON.parse(fs.readFileSync("alreadyRactedTo.json", 'utf8'))
 
 getGoogleOAuthData (function (auth) {
-  checkInboxForMessages (auth)
+  checkInboxForMessages (auth, function (auth, messages) {
+    iterateThruEmails (auth, messages)
+  })
 })
 
 function getGoogleOAuthData (callback) {
@@ -26,7 +28,7 @@ function getGoogleOAuthData (callback) {
 /**
  * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
  */
-function checkInboxForMessages(auth) {
+function checkInboxForMessages(auth, callback) {
   gmail.users.messages.list({
     auth: auth,
     userId: 'me',
@@ -36,7 +38,7 @@ function checkInboxForMessages(auth) {
       return console.log('The API returned an error: ' + error)
     }
 
-    iterateThruEmails (auth, response.messages)
+    callback (auth, response.messages)
   })
 }
 
