@@ -114,7 +114,8 @@ function runScript (callback) {
 }
 
 function sendEmail (subject, body, callback) {
-  var transporter  = nodemailer.createTransport({
+  var sentMailCounter = 0,
+      transporter     = nodemailer.createTransport({
     service: CONFIG.EMAIL_PROVIDER,
     auth: {
       user: CONFIG.EMAIL_USER,
@@ -139,7 +140,9 @@ function sendEmail (subject, body, callback) {
         console.log("Message sent: " + info.response);
       }
 
-      callback ()
+      if (++sentMailCounter == CONFIG.EMAIL_LIST.length) {
+        callback ()
+      }
     })
   })
 }
