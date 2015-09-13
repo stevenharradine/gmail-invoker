@@ -9,8 +9,14 @@ getGoogleOAuthData (function (auth) {
   checkInboxForMessages (auth, function (auth, messages) {
     iterateThruEmails (auth, messages, function (auth, message_id) {
       getEmailContents (auth, message_id, function (message_id, response) {
-        processEmail (message_id, response, function () {
-          console.log ("done")
+        processEmail (message_id, response, function (email_contents) {
+          sendEmail ("Script Started", email_contents, function () {
+            runScript (function (stdout) {
+              sendEmail ("Script Finished", stdout.replace(/(?:\r\n|\r|\n)/g, '<br />'), function () {
+                console.log ("done")
+              })
+            })
+          })
         })
       })
     })
@@ -85,13 +91,7 @@ function processEmail (message_id, response, callback) {
 
       addCurrentIdToAlreadyRactedTo (getHeaders ("Date", response.payload.headers))
 
-      sendEmail ("Script Started", email_contents, function () {
-        runScript (function (stdout) {
-          sendEmail ("Script Finished", stdout.replace(/(?:\r\n|\r|\n)/g, '<br />'), function () {
-            callback()
-          })
-        })
-      })
+      callback (email_contents)
     }
   }
 }
