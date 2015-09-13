@@ -7,7 +7,13 @@ var CONFIG          = require("./config"),
 
 getGoogleOAuthData (function (auth) {
   checkInboxForMessages (auth, function (auth, messages) {
-    iterateThruEmails (auth, messages)
+    iterateThruEmails (auth, messages, function (auth, message_id) {
+      getEmailContents (auth, message_id, function (message_id, response) {
+        processEmail (message_id, response, function () {
+          console.log ("done")
+        })
+      })
+    })
   })
 })
 
@@ -42,7 +48,7 @@ function checkInboxForMessages(auth, callback) {
   })
 }
 
-function iterateThruEmails (auth, messages) {
+function iterateThruEmails (auth, messages, callback) {
   if (messages.length == 0) {
     console.log('No messages found.')
   } else {
@@ -50,12 +56,12 @@ function iterateThruEmails (auth, messages) {
     for (var i = 0; i < messages.length; i++) {
       var message = messages[i]
 
-      getEmailContents (auth, message.id)
+      callback (auth, message.id)
     }
   }
 }
 
-function getEmailContents (auth, message_id) {
+function getEmailContents (auth, message_id, callback) {
   gmail.users.messages.get({
     auth: auth,
     userId: 'me',
@@ -65,11 +71,11 @@ function getEmailContents (auth, message_id) {
       return console.log('The API returned an error: ' + error)
     }
 
-    processEmail (message_id, response)
+    callback (message_id, response)
   })
 }
 
-function processEmail (message_id, response) {
+function processEmail (message_id, response, callback) {
   if (response.payload.body.data && haveNotReactedToThisId (getHeaders ("Date", response.payload.headers), alreadyRactedTo)) {
     var email_contents = new Buffer (response.payload.body.data, 'base64').toString()
 
@@ -77,11 +83,14 @@ function processEmail (message_id, response) {
       console.log ("      ID: " + message_id)
       console.log ("Contents: " + email_contents)
 
-      sendEmail ("Script Started", email_contents)
       addCurrentIdToAlreadyRactedTo (getHeaders ("Date", response.payload.headers))
 
-      runScript (function (stdout) {
-        sendEmail ("Script Finished", stdout.replace(/(?:\r\n|\r|\n)/g, '<br />'))
+      sendEmail ("Script Started", email_contents, function () {
+        runScript (function (stdout) {
+          sendEmail ("Script Finished", stdout.replace(/(?:\r\n|\r|\n)/g, '<br />'), function () {
+            callback()
+          })
+        })
       })
     }
   }
@@ -110,7 +119,7 @@ function runScript (callback) {
   })
 }
 
-function sendEmail (subject, body) {
+function sendEmail (subject, body, callback) {
   var transporter  = nodemailer.createTransport({
     service: CONFIG.EMAIL_PROVIDER,
     auth: {
@@ -131,10 +140,12 @@ function sendEmail (subject, body) {
     // send mail with defined transport object
     transporter.sendMail(mailOptions, function(error, info){
       if (error){
-        return console.log(error);
+        console.log(error);
       } else {
         console.log("Message sent: " + info.response);
       }
+
+      callback ()
     })
   })
 }
