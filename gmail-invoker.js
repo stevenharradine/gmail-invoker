@@ -5,16 +5,23 @@ var CONFIG          = require("./config"),
     nodemailer      = require("nodemailer"),
     alreadyRactedTo = JSON.parse(fs.readFileSync("alreadyRactedTo.json", 'utf8'))
 
-// Load client secrets from a local file.
-fs.readFile('client_secret.json', function processClientSecrets(error, content) {
-  if (error) {
-    return console.log('Error loading client secret file: ' + error)
-  }
-
-  // Authorize a client with the loaded credentials, then call the
-  // Gmail API.
-  authorize(JSON.parse(content), checkInboxForMessages)
+getGoogleOAuthData (function (auth) {
+  checkInboxForMessages (auth)
 })
+
+function getGoogleOAuthData (callback) {
+  fs.readFile('client_secret.json', function processClientSecrets(error, content) {
+    if (error) {
+      return console.log('Error loading client secret file: ' + error)
+    }
+
+    // Authorize a client with the loaded credentials, then call the
+    // Gmail API.
+    authorize(JSON.parse(content), function (auth) {
+      callback(auth)
+    })
+  })
+}
 
 /**
  * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
