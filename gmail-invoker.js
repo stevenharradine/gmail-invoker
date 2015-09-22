@@ -76,17 +76,31 @@ function getEmailContents (auth, messages, callback) {
 }
 
 function processEmail (message_id, response, callback) {
-  if (response.payload.body.data && haveNotReactedToThisId (getHeaders ("Date", response.payload.headers), alreadyRactedTo)) {
-    var email_contents = new Buffer (response.payload.body.data, 'base64').toString()
+  var headers        = Array (),
+      email_contents = "",
+      date           = ""
 
-    if (email_contents && email_contents.indexOf(CONFIG.CODEWORD) >= 0) {
-      console.log ("      ID: " + message_id)
-      console.log ("Contents: " + email_contents)
+  response.payload.headers.forEach(function (element) {
+      headers[element.name] = element.value
+  })
 
-      addCurrentIdToAlreadyRactedTo (getHeaders ("Date", response.payload.headers))
+  if (headers["Subject"].indexOf (CONFIG.CODEWORD) >= 0) {
+    email_contents = headers["Subject"]
+    date = headers["Date"]
+  }
 
-      callback (email_contents)
-    }
+  if (response.payload.body.data) {
+    email_contents = new Buffer (response.payload.body.data, 'base64').toString()
+    date = getHeaders ("Date", response.payload.headers)
+  }
+
+  if (email_contents.indexOf(CONFIG.CODEWORD) >= 0 && haveNotReactedToThisId (date, alreadyRactedTo)) {
+    console.log ("      ID: " + message_id)
+    console.log ("Contents: " + email_contents)
+
+    addCurrentIdToAlreadyRactedTo (date)
+
+    callback (email_contents)
   }
 }
 
